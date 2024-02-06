@@ -25,11 +25,11 @@ class CustomLFForRegression(nn.Module):
     def __init__(self, model_name='allenai/longformer-base-4096', num_labels=1, num_layers_to_freeze=202):
         super(CustomLFForRegression, self).__init__()
         
-        # Load RoBERTa configuration
+        # Load Longformer configuration
         config = LongformerConfig.from_pretrained(model_name)
         config.num_labels = 1
         
-        # Load pre-trained RoBERTa model
+        # Load pre-trained Longformer model
         self.longf = LongformerForSequenceClassification.from_pretrained(model_name, config=config)
         
         # Iterate through the layers and freeze/unfreeze accordingly
@@ -40,19 +40,18 @@ class CustomLFForRegression(nn.Module):
                 param.requires_grad = True
 
         # Modify the model's head for regression
-        #self.longf.config.num_labels = num_labels
-        #self.roberta.pooler.dense = nn.Linear(config.hidden_size, num_labels)
         self.regressor = nn.Linear(config.hidden_size, 1, dtype=torch.float32)  # Assuming BERT's hidden size is 768
-        #self.longf.pooler.activation = nn.Identity()
 
+        #freeze the first x layers
         for name, param in self.longf.named_parameters():
             print(name, param.requires_grad)
 
 
     def forward(self, input_ids, attention_mask, token_type_ids=None, position_ids=None, head_mask=None, labels=None):
+        
+        #forward pass
         outputs = self.longf(input_ids, attention_mask=attention_mask, head_mask=head_mask)
         logits = outputs.logits
-        #logits = self.regressor(lhs_output)
         return logits
 
 
@@ -75,14 +74,11 @@ checkpoint = torch.load(checkpoint_path, map_location=torch.device(device))  # S
 # Load the model state_dict from the checkpoint
 model.load_state_dict(checkpoint)
 
-
 # Define window size and overlap
 window_size = 5600
 overlap = 100
 
 tokenizer = LongformerTokenizer.from_pretrained('allenai/longformer-base-4096')
-
-
 
 epochs = 1
 
@@ -94,13 +90,12 @@ for epoch in range(epochs):
     model.train()
     total_loss = 0
     step = 0
+
     for batch in training_loader:
         input_ids, targets = batch
 
-        #if (targets > 3) and (targets < 4.5):
-            #next
-        #else:
-            # Concatenate values across columns with spaces
+
+        # Concatenate values across columns with spaces
         result_string = ' '.join([' '.join(map(str, arr)) for arr in input_ids])
         
         characters_to_remove = '\[]"\''
@@ -138,35 +133,34 @@ for epoch in range(epochs):
             input_ids.append(tokens['input_ids'])
             attn_masks.append(tokens['attention_mask'])
 
-
-        #targets = targets.repeat(len(input_ids), 1).to(dtype=torch.float32).to(device)
+        # send tensors to device
         targets = targets.to(dtype=torch.float32).to(device)
         input_ids = torch.cat(input_ids, dim=0).to(device)
         attn_masks = torch.cat(attn_masks, dim=0).to(device)
 
-        input_ids = input_ids
-        attn_masks = attn_masks
-
+        #get outputs
         outputs = model(input_ids, attn_masks)
         aggregated_logits = torch.mean(outputs, dim=0, keepdim=True)
-        #aggregated_logits = torch.mean(aggregated_logits, dim=0, keepdim=True)
 
+        #compute and print loss
         loss = criterion(aggregated_logits, targets)
-
         loss = loss.to(dtype=torch.float32)
         print(loss)
         outputs_cpu = aggregated_logits.cpu()
         print(aggregated_logits.item())
 
         loss.backward()
+
+        #optional clip gradients if necessary
         #torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
 
+        #accumulate gradients
         if (step + 1) % gradient_accumulation_steps == 0:
             total_loss += loss.item()
             # Update optimizer and scheduler
             optimizer.step()
             optimizer.zero_grad()
-            #scheduler.step()
+            # scheduler.step()
             torch.save(model.state_dict(), 'LF_lhs.pth')
         step += 1
 
@@ -196,57 +190,3 @@ for epoch in range(epochs):
 
 
 
-
-
-
-
-
-
-'''
-
-
-for epoch in range(epochs):
-    print(f"Epoch {epoch + 1}/{epochs}")
-
-    running_loss = 0
-    for images, labels in training_loader:
-
-
-        # move to the specified device
-        images, labels = images.float().to(device), labels.float().to(device)
-
-        # forward
-        optimizer.zero_grad()
-        outputs = model(images)
-        # print(outputs)
-        # print(labels)
-        loss = criterion(outputs, labels)
-
-        loss.backward()
-        optimizer.step()
-
-    # statistics
-        running_loss += loss.item() * images.size(0)
-
-    epoch_loss = running_loss / sample_size
-
-    print(f"Training Loss: {epoch_loss:.4f}")
-
-
-    # Validation phase
-    model.eval()  # Set the model to evaluation mode
-    val_running_loss = 0
-    with torch.no_grad():  # Disable gradient computation during validation
-        for val_images, val_labels in validation_loader:
-            val_images, val_labels = val_images.float().to(device), val_labels.float().to(device)
-
-            val_outputs = model(val_images)
-            val_loss = criterion(val_outputs, val_labels)
-
-            val_running_loss += val_loss.item() * val_images.size(0)
-
-    val_epoch_loss = val_running_loss / len(validation_loader.dataset)
-    
-    print(f"Validation Loss: {val_epoch_loss:.4f}")
-    print("-" * 10)
-'''

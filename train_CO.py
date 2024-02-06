@@ -4,7 +4,7 @@ import torch.optim as optim
 
 from utils import create_training_dataloader
 
-'''
+
 device = (
     "cuda"
     if torch.cuda.is_available()
@@ -12,8 +12,7 @@ device = (
     if torch.backends.mps.is_available()
     else "cpu"
 )
-'''
-device = 'cpu'
+
 batch_size = 32
 
 training_loader, validation_loader, sample_size = create_training_dataloader(batch_size=batch_size)
@@ -24,10 +23,6 @@ class myNN(nn.Module):
         self.conv1 = nn.Conv2d(1, input_size, kernel_size=(10, 13))
         self.relu1 = nn.LeakyReLU()
         self.pool1 = nn.MaxPool2d(kernel_size=(10,1))
-        #self.conv2 = nn.Conv2d(input_size, 32, kernel_size=(6, 8))
-        #self.relu2 = nn.LeakyReLU()
-        #self.pool2 = nn.MaxPool2d(kernel_size=(4,1))
-        #self.adaptivepool = nn.AdaptiveAvgPool2d(1)
         self.lstm = nn.LSTM(input_size=input_size, hidden_size=hidden_size, batch_first=True)
         self.fc = nn.Linear(in_features=hidden_size, out_features=output_size)
 
@@ -36,17 +31,10 @@ class myNN(nn.Module):
         x = self.conv1(input)
         x = self.relu1(x)
         x = self.pool1(x)
-        #x = self.conv2(x)
-        #x = self.relu2(x)
-        #x = self.pool2(x)
         x = torch.squeeze(x, dim=-1)
         x = x.permute(0, 2, 1)
-        #x = self.adaptivepool(x)
         output, (h_n, c_n) = self.lstm(x)
-        #h_n.view(batch_size,-1)
-        #x = self.fc(output[:,:,:])
-        #x = self.fc(h_n[-1,:,:])
-        return x
+        return h_n
 
 # Define input size, hidden layer size, and output size
 input_size = 16
@@ -81,7 +69,7 @@ for epoch in range(epochs):
         loss.backward()
         optimizer.step()
 
-    # statistics
+        # statistics
         running_loss += loss.item() * images.size(0)
 
     epoch_loss = running_loss / sample_size

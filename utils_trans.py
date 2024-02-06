@@ -16,29 +16,6 @@ def get_data():
 
     return train_logs, train_scores, test_logs
 
-'''
-# convert the categorical feature text_change into numerical feature
-# substitue with the string length depending on the type of characters in the string
-def count_char(input_str):
-    if input_str == "NoChange":
-        return 0
-    
-    # Check if the string contains only letters
-    if input_str.isalpha():
-        return len(input_str)
-    
-    # Check if the string contains special characters or symbols
-    else:
-        count = 0
-        for char in input_str:
-            if char.isalnum():
-                count += 1
-
-        # return -1 when the string only contains 1 special character
-        if count == 0:
-            count = -1
-        return count
-'''
 
 
 def preprocess(train_logs, train_scores, test_logs):
@@ -85,8 +62,6 @@ class TrainingDataset(Dataset):
 
 def collate_fn(batch):
     sequences, labels = zip(*batch)
-    #max_length = max(len(seq) for seq in sequences)
-    #padded = [padding(seq, max_length) for seq in sequences]
     return sequences, torch.stack(labels)
 
 def padding(sequence, max_length):
@@ -100,16 +75,6 @@ def create_training_dataloader(batch_size):
     train_logs, train_scores, test_logs = preprocess(train_logs, train_scores, test_logs)
 
     training_dataset = TrainingDataset(train_logs, train_scores)
-
-    '''
-    #padding entire set
-    max_length = max(len(seq) for seq in training_dataset.data)
-    for i in range(len(training_dataset.data)):
-        arr = training_dataset.data[i]
-        pad_zeros = torch.zeros([max_length - len(arr), arr.shape[1]], dtype=float)
-        arr = torch.tensor(arr)
-        training_dataset.data[i] = torch.cat((pad_zeros, arr))
-    '''
 
     # Define the sizes for training and validation sets
     dataset_size = len(training_dataset)

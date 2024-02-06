@@ -28,7 +28,6 @@ class CustomRobertaForRegression(nn.Module):
         # Load RoBERTa configuration
         config = RobertaConfig.from_pretrained(model_name)
 
-        
         # Load pre-trained RoBERTa model
         self.roberta = RobertaModel.from_pretrained(model_name, config=config)
         
@@ -41,6 +40,7 @@ class CustomRobertaForRegression(nn.Module):
 
         # Modify the model's head for regression
         self.roberta.config.num_labels = num_labels
+
         #self.roberta.pooler.dense = nn.Linear(config.hidden_size, num_labels)
         self.regressor = nn.Linear(config.hidden_size, 1, dtype=torch.float32)  # Assuming BERT's hidden size is 768
         self.roberta.pooler.activation = nn.Identity()
@@ -109,10 +109,7 @@ for epoch in range(epochs):
     for batch in training_loader:
         input_ids, targets = batch
 
-        #if (targets > 3) and (targets < 4.5):
-            #next
-        #else:
-            # Concatenate values across columns with spaces
+        # Concatenate values across columns with spaces
         result_string = ' '.join([' '.join(map(str, arr)) for arr in input_ids])
         
         characters_to_remove = '\[]"\''
@@ -123,7 +120,7 @@ for epoch in range(epochs):
         input_ids = []
         attn_masks = []
 
-        # Split the long text into 500-character increments
+        # Split the long text into 500-character increments, accumlate a random sample from each essay
         for i in range(0, len(result_string), window_size):
             if np.random.uniform() < .15:
                 if len(input_ids) < 25:
@@ -159,12 +156,13 @@ for epoch in range(epochs):
         input_ids = input_ids
         attn_masks = attn_masks
 
+        #get outputs
         outputs = model(input_ids, attn_masks)
         aggregated_logits = torch.mean(outputs, dim=1, keepdim=False)
         aggregated_logits = torch.mean(aggregated_logits, dim=0, keepdim=True)
 
+        #caculate loss
         loss = criterion(aggregated_logits, targets)
-
         loss = loss.to(dtype=torch.float32)
         print(loss)
         outputs_cpu = aggregated_logits.cpu()
@@ -173,6 +171,7 @@ for epoch in range(epochs):
         loss.backward()
         #torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
 
+        #accumulate gradients and perform gradient descent
         if (step + 1) % gradient_accumulation_steps == 0:
             total_loss += loss.item()
             # Update optimizer and scheduler
@@ -186,36 +185,11 @@ for epoch in range(epochs):
     print(f'Epoch {epoch + 1}/{epochs}, Loss: {average_loss}')
 
 
-    '''
-    # Validation loop
-    model.eval()
-    val_loss = 0
-
-    with torch.no_grad():
-        for batch in validation_loader:
-            input_ids, attention_mask = batch
-            input_ids, attention_mask = input_ids.to(device), attention_mask.to(device)
-            targets = targets.to(device)
-
-            logits = model(input_ids=input_ids, attention_mask=attention_mask)
-            loss = criterion(logits.squeeze(), targets)
-            val_loss += loss.item()
-
-    average_val_loss = val_loss / len(validation_loader)
-    print(f'Validation Loss: {average_val_loss}')
-    '''
-
-
-
-
-
-
-
 
 
 
 '''
-
+#Validation Loop
 
 for epoch in range(epochs):
     print(f"Epoch {epoch + 1}/{epochs}")

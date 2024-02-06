@@ -84,8 +84,6 @@ class TrainingDataset(Dataset):
 
 def collate_fn(batch):
     sequences, labels = zip(*batch)
-    #max_length = max(len(seq) for seq in sequences)
-    #padded = [padding(seq, max_length) for seq in sequences]
     return torch.stack(sequences), torch.stack(labels)
 
 def padding(sequence, max_length):

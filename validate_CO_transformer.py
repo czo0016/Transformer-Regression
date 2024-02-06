@@ -42,7 +42,6 @@ class CustomRobertaForRegression(nn.Module):
 
         # Modify the model's head for regression
         self.roberta.config.num_labels = num_labels
-        #self.roberta.pooler.dense = nn.Linear(config.hidden_size, num_labels)
         self.regressor = nn.Linear(config.hidden_size, 1, dtype=torch.float32)  # Assuming BERT's hidden size is 768
         self.roberta.pooler.activation = nn.Identity()
 
@@ -54,10 +53,6 @@ class CustomRobertaForRegression(nn.Module):
         lhs_output = outputs.last_hidden_state
         logits = self.regressor(lhs_output)
         return logits
-
-        #outputs = self.roberta(input_ids, attention_mask=attention_mask, head_mask=head_mask)
-        #pooled_output = outputs.pooler_output
-        #logits = self.regressor(pooled_output)
         return logits
 
 # Define input size, hidden layer size, and output size
